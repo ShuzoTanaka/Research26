@@ -1,2 +1,22 @@
-* .dcm
+# Python
+__pycache__/
+*.py[cod]
+.venv/
 
+# C / C++
+*.o
+*.out
+bin/
+
+# Data files
+*.nii
+*.nii.gz
+*.dat
+*.csv
+*.mat
+*.dcm
+
+# Deep Learning weights
+*.pth
+*.h5
+*.onnx
