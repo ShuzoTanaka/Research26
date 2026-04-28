@@ -20,3 +20,9 @@ bin/
 *.pth
 *.h5
 *.onnx
+
+# OS generated files
+.DS_Store
+
+# IDE settings
+.vscode/
