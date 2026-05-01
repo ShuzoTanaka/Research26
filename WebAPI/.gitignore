@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Jupyter / IPython
+.ipynb_checkpoints
+
+# Virtual environment
+.venv/
+.env/
+.Appenv/
+.mrtrixenv/
+.smpenv/
+.tractenv3/
+env/
+venv/
+ENV/
+
+# Mac
+.DS_Store
+
+# VSCode
+.vscode/
+
+# Logs and temp
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Streamlit
+.streamlit/config.toml
+
+# Output and data
+data/
+output/
+*.nii
+*.nii.gz
+*.dcm
+*.zip
+
+# MRtrix3 / DTI outputs
+*.mif
+*.tck
+*.bvec
+*.bval
+*.b
+WM_response_function.tx
+DWI_tensor.*
+Files_*.nii.gz
+DWI_mask.*
+
+# ML model weights (large binary files)
+*.pth
+*.pt
+*.ckpt
+*.h5
+
+# OS trash
+.Trashes
+Thumbs.db

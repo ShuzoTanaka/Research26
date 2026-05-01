@@ -1,0 +1,20 @@
+services:
+  tractography-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+    image: lumbar-tractography:latest
+    container_name: lumbar-tractography
+    ports:
+      - "8501:8501"
+    volumes:
+      # ホスト側の data/ フォルダに DICOM を置いてコンテナから参照
+      - ./data:/app/data
+      # 解析結果をホスト側に永続化
+      - ./output:/app/output
+    environment:
+      - OMP_NUM_THREADS=4
+      - MRTRIX_NTHREADS=4
+    restart: unless-stopped

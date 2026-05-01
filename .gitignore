@@ -1,7 +1,20 @@
 # Python
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
+*.so
+.ipynb_checkpoints
+
+# Virtual environments
 .venv/
+venv/
+env/
+ENV/
+WebAPI/.Appenv/
+WebAPI/.mrtrixenv/
+WebAPI/.smpenv/
+WebAPI/.tractenv3/
 
 # C / C++
 *.o
@@ -15,14 +28,32 @@ bin/
 *.csv
 *.mat
 *.dcm
+*.zip
 
 # Deep Learning weights
 *.pth
+*.pt
+*.ckpt
 *.h5
 *.onnx
 
+# MRtrix3 / DTI outputs
+*.mif
+*.tck
+*.bvec
+*.bval
+*.b
+WebAPI/WM_response_function.tx
+WebAPI/data/
+WebAPI/output/
+
 # OS generated files
 .DS_Store
+Thumbs.db
+.Trashes
 
 # IDE settings
 .vscode/
+
+# Claude Code internal
+.claude/
