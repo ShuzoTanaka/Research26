@@ -1,47 +1,88 @@
 # 腰椎 FA Tractography Viewer
 
-DICOMファイルから腰椎領域のTractographyを自動生成・表示するStreamlitウェブアプリ。
+腰椎の拡散強調MRI（DICOM）から、AIによるROIマスク生成・Tractography・DTI指標（FA/MD/RD）を自動で計算するウェブアプリです。
 
 ---
 
-## 概要
+## 動作環境
 
-| 項目 | 内容 |
+| 項目 | 要件 |
 |---|---|
-| 対象部位 | 腰椎（Lumbar spine） |
-| 入力 | DICOMファイル群（拡散強調MRI） |
-| 出力 | FA map、Tractography (.tck)、DTI指標 |
-| インターフェース | Streamlit（ブラウザで操作） |
-| 対応OS | Docker経由でWindows / macOS / Linux |
+| OS | Windows / macOS / Linux |
+| 必須ソフト | [Docker Desktop](https://www.docker.com/products/docker-desktop/) |
+| メモリ | **8GB 以上**（Docker Desktop の割り当て） |
+| ストレージ | 約 15GB（Dockerイメージ＋作業領域） |
 
 ---
 
-## セットアップ（Docker）
+## 事前準備
 
-### 前提条件
+### 1. Docker Desktop のインストール
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) がインストール済みであること
-- Docker Desktop の **Resources → Memory を 8GB 以上**に設定すること
+[Docker Desktop 公式サイト](https://www.docker.com/products/docker-desktop/) からインストールしてください。
 
-### 初回ビルド
+### 2. Docker Desktop のメモリ設定
+
+MRtrix3 のビルドに大量のメモリが必要です。
+
+```
+Docker Desktop を開く
+→ 右上の歯車アイコン（Settings）
+→ Resources
+→ Memory を 8GB 以上に設定
+→ Apply & Restart
+```
+
+### 3. 学習済みモデルファイルの配置
+
+モデルファイル（`20250623_2058_unet_resnet34.pth`、約98MB）を `WebAPI/` フォルダに配置してください。  
+※ファイルはサイズが大きいため Git には含まれていません。別途入手してください。
+
+```
+WebAPI/
+├── 20250623_2058_unet_resnet34.pth  ← ここに置く
+├── app.py
+├── Dockerfile
+└── ...
+```
+
+---
+
+## 起動手順
+
+### はじめて起動するとき（初回のみ）
+
+ターミナル（コマンドプロンプト / PowerShell）を開き、`WebAPI` フォルダに移動して以下を実行します。
 
 ```bash
 cd WebAPI
-docker compose build
+docker compose up --build
 ```
 
-> **注意:** 初回ビルドでは MRtrix3 を C++ からコンパイルするため **30〜60分** かかります。  
-> 2回目以降はキャッシュが効くため数分で完了します。
+> **注意：初回ビルドは 30〜60 分かかります。**  
+> MRtrix3 という解析ツールを C++ からコンパイルするためです。  
+> 「`Container lumbar-tractography Started`」と表示されたら起動完了です。
 
-### 起動
+### 2回目以降
 
 ```bash
+cd WebAPI
 docker compose up
 ```
 
-ブラウザで `http://localhost:8501` を開く。
+キャッシュが使われるので **数分で起動**します。
 
-### 停止
+### アプリを開く
+
+ブラウザで以下の URL を開いてください。
+
+```
+http://localhost:8501
+```
+
+### 終了するとき
+
+ターミナルで `Ctrl + C` を押すか、別のターミナルで以下を実行します。
 
 ```bash
 docker compose down
@@ -51,75 +92,126 @@ docker compose down
 
 ## 使い方
 
-### 解析フロー
+### ステップ 1：DICOMフォルダをアップロード
 
-```
-① DICOMファイルを選択（ブラウザのファイル選択）
-        ↓
-② 「解析を開始」ボタン
-   → DICOM → NIfTI 変換（dcm2niix）
-   → UNet ResNet34 による腰椎 ROI マスク自動生成
-        ↓
-③ マスク確認・編集（必要に応じて）
-        ↓
-④ 「解析スタート（FOD/Tractography）」ボタン
-   → Fiber Orientation Distribution (FOD) 計算
-   → Tractography 生成（20,000本のストリームライン）
-   → FA / MD / RD マップ計算
-        ↓
-⑤ 結果を ZIP でダウンロード
-```
+アプリ上の「**DICOMフォルダを選択**」をクリックします。
 
-### DICOMの選択方法
+- フォルダ内の **全 DICOM ファイルを選択**してアップロードしてください
+- ファイル拡張子は `.dcm` のほか、拡張子なしのファイルも対応しています
+- ファイル数が多い場合（数百枚）でも問題ありません
 
-アプリ上のファイルアップローダーから **フォルダ内のDICOMファイルを複数選択** してアップロードします。  
-ファイル拡張子は `.dcm` のほか、拡張子なしのファイルも対応しています。
+> **選択方法（Windows）：**  
+> ファイル選択画面でフォルダを開き、`Ctrl + A` で全選択 → 「開く」
 
-### 出力ファイル
+> **選択方法（macOS）：**  
+> ファイル選択画面でフォルダを開き、`Command + A` で全選択 → 「開く」
 
-| ファイル | 内容 |
+アップロード後、DICOMのメタ情報（患者情報・撮像条件）が表示されます。
+
+---
+
+### ステップ 2：解析を開始（Stage 1）
+
+「**解析を開始**」ボタンを押します。
+
+内部で以下が自動実行されます：
+
+1. DICOM → NIfTI 変換（`dcm2niix`）
+2. UNet ResNet34 による腰椎 ROI マスクの自動生成
+
+処理時間の目安：**1〜3 分**（データ量による）
+
+「解析が完了しました」と表示されたら次のステップへ。
+
+---
+
+### ステップ 3：FOD / Tractography を実行（Stage 2）
+
+「**解析スタート（FOD/Tractography）**」ボタンを押します。
+
+内部で以下が自動実行されます：
+
+1. 白質応答関数の推定（`dwi2response tournier`）
+2. Fiber Orientation Distribution（FOD）の計算（`dwi2fod csd`）
+3. Tractography の生成（20,000 本のストリームライン）
+4. DTI 指標の計算（FA / MD / RD マップ）
+
+処理時間の目安：**5〜15 分**（データ量による）
+
+「FOD/Tractography が完了しました」と表示されたら完了です。
+
+---
+
+### ステップ 4：結果をダウンロード
+
+「**結果を保存（ZIP）**」ボタンを押すと、全出力ファイルを ZIP でダウンロードできます。
+
+#### 出力ファイル一覧
+
+| ファイル名 | 内容 |
 |---|---|
-| `DWI.nii.gz` | 変換後のNIfTI画像 |
-| `DWI.bvec / .bval` | 拡散方向・b値 |
-| `output_mask.nii.gz` | AIが予測したROIマスク |
+| `DWI.nii.gz` | 変換済み NIfTI 画像 |
+| `DWI.bvec` / `DWI.bval` | 拡散方向・b値 |
+| `output_mask.nii.gz` | AI が予測した腰椎 ROI マスク |
 | `WM_FOD.mif` | Fiber Orientation Distribution |
-| `track.tck` | Tractographyストリームライン |
+| `track.tck` | Tractography ストリームライン（20,000 本） |
 | `Files_FA.nii.gz` | FA（Fractional Anisotropy）マップ |
 | `Files_MD.nii.gz` | MD（Mean Diffusivity）マップ |
+| `Files_RD.nii.gz` | RD（Radial Diffusivity）マップ |
 
 ---
 
-## データの配置（任意）
+## よくあるトラブル
 
-`docker compose up` 前にDICOMデータをボリュームとして渡すこともできます：
+### アプリが開かない（`http://localhost:8501` に接続できない）
 
+Docker コンテナの起動が完了していない可能性があります。  
+ターミナルに `Container lumbar-tractography Started` と表示されるまで待ってください。
+
+### ビルド中にメモリ不足エラーが出る
+
+Docker Desktop の Memory 設定が不足しています。  
+Settings → Resources → Memory を **12GB** に増やして再試行してください。
+
+```bash
+docker compose build --no-cache
 ```
-WebAPI/
-└── data/
-    └── patient_01/
-        ├── IM-0001.dcm
-        ├── IM-0002.dcm
-        └── ...
-```
 
-コンテナ内では `/app/data/` としてマウントされます。
+### 「解析中にエラーが発生しました」と表示される
+
+「ログを表示」をクリックして内容を確認してください。  
+モデルファイル（`.pth`）が `WebAPI/` フォルダに配置されているか確認してください。
+
+### コードを変更した後に反映されない
+
+コードを変更した場合は `--build` オプションが必要です。
+
+```bash
+docker compose down
+docker compose up --build
+```
 
 ---
 
-## 処理パイプライン詳細
+## 処理パイプライン（詳細）
 
-### Stage 1（`process1.py`）
-
-1. `dcm2niix` でDICOMをNIfTI形式に変換
-2. UNet ResNet34（`20250623_2058_unet_resnet34.pth`）で腰椎ROI領域をセグメンテーション
-
-### Stage 2（`process2.sh`）
-
-1. `mrconvert` でNIfTI → MIF変換（MRtrix3形式）
-2. `dwi2response tournier` で白質応答関数を推定
-3. `dwi2fod csd` でFODを計算
-4. `tckgen` でTractographyを生成（seed: ROIマスク、20,000本）
-5. `dwi2tensor` + `tensor2metric` でDTI指標（FA/MD/RD）を算出
+```
+DICOM ファイル群
+    ↓  dcm2niix
+DWI.nii.gz / .bvec / .bval / .json
+    ↓  UNet ResNet34 (predict_nif.py)
+output_mask.nii.gz  ← 腰椎 ROI マスク
+    ↓  mrconvert (MRtrix3)
+DWI.mif
+    ↓  dwi2response tournier
+WM_response_function.tx
+    ↓  dwi2fod csd
+WM_FOD.mif
+    ↓  tckgen (seed: ROI マスク)
+track.tck  ← Tractography
+    ↓  dwi2tensor + tensor2metric
+Files_FA / MD / RD / L1.nii.gz
+```
 
 ---
 
@@ -127,41 +219,18 @@ WebAPI/
 
 ```
 WebAPI/
-├── app.py                  # StreamlitメインUI
-├── process1.py             # Stage1: DICOM→NIfTI + マスク予測
-├── process2.sh             # Stage2: FOD + Tractography生成
-├── predict_nif.py          # UNetによるROIセグメンテーション
-├── makeMask.py             # マスク手動編集エディタ
-├── FAmap_auto.py           # FA重み付き3D可視化
-├── dicom_reader.py         # DICOMメタデータ読み取り
-├── file_dialog.py          # フォルダ選択ユーティリティ（ネイティブ環境用）
-├── utils/
-│   └── path_utils.py       # パス検証ユーティリティ
-├── 20250623_2058_unet_resnet34.pth  # 学習済みモデル（98MB）
-├── Dockerfile              # Dockerイメージ定義
-├── docker-compose.yml      # コンテナ起動設定
-├── requirements_docker.txt # Docker用Pythonパッケージ
-├── requirements_App.txt    # ネイティブ環境（.Appenv）用
-├── requirements_smp.txt    # セグメンテーション環境（.smpenv）用
-├── requirements_mrtrix.txt # MRtrix3環境（.mrtrixenv）用
-└── requirements_tract.txt  # Tractography可視化環境（.tractenv3）用
+├── app.py                           # Streamlit メイン UI
+├── process1.py                      # Stage 1: DICOM→NIfTI + マスク生成
+├── process2.sh                      # Stage 2: FOD + Tractography + DTI
+├── predict_nif.py                   # UNet によるセグメンテーション推論
+├── dicom_reader.py                  # DICOM メタデータ読み取り
+├── makeMask.py                      # マスク手動編集エディタ
+├── FAmap_auto.py                    # FA 重み付き 3D 可視化（開発中）
+├── 20250623_2058_unet_resnet34.pth  # 学習済みモデル（Git 管理外）
+├── Dockerfile                       # Docker イメージ定義
+├── docker-compose.yml               # コンテナ起動設定
+└── requirements_docker.txt          # Python パッケージ一覧
 ```
-
----
-
-## ネイティブ環境での実行（macOS）
-
-Docker不使用で直接実行する場合（macOS推奨）：
-
-```bash
-# 仮想環境を有効化
-source .Appenv/bin/activate
-
-# Streamlitを起動
-streamlit run app.py
-```
-
-> MRtrix3はmacOSで動作しますが、Windowsでは非対応のため Docker を使用してください。
 
 ---
 
@@ -169,35 +238,5 @@ streamlit run app.py
 
 | 制限 | 詳細 |
 |---|---|
-| 3D可視化（FAmap_auto.py） | Docker（ヘッドレス）環境ではVTKウィンドウを表示できない。別途対応予定。 |
-| GPU非対応 | 現在CPU推論のみ。GPUが必要な場合は Dockerfile の PyTorch インストール行の `whl/cpu` を `whl/cu121` 等に変更。 |
-
----
-
-## 開発者向け情報
-
-### Docker イメージの構成
-
-```
-Stage 1 (mrtrix-builder)
-  ├─ Debian Trixie ベース
-  ├─ MRtrix3 3.0.4 をソースからビルド（-nogui）
-  └─ ビルド成果物: /opt/mrtrix3/bin + lib
-
-Stage 2 (最終イメージ)
-  ├─ Stage1 から MRtrix3 バイナリのみコピー
-  ├─ conda: Python 3.12, dcm2niix, tk
-  ├─ pip: PyTorch CPU, Streamlit, DIPY, segmentation-models-pytorch ...
-  └─ アプリ本体
-```
-
-### ビルド時の注意
-
-- Docker Desktop のメモリを **8GB 以上** に設定する
-- MRtrix3 のコンパイルに **30〜60分** かかる（初回のみ）
-- Apple Silicon (M1/M2/M3) では `linux/amd64` をQEMUエミュレーションで実行するため、ビルドが遅くなる
-
-### イメージの再ビルドが必要なケース
-
-- `Dockerfile` や `requirements_docker.txt` を変更したとき
-- `--no-cache` で完全な再ビルド: `docker compose build --no-cache`
+| 3D 可視化 | Docker ヘッドレス環境では VTK ウィンドウを表示できません。対応予定。 |
+| GPU 非対応 | 現在 CPU 推論のみ。GPU を使う場合は Dockerfile 内の `whl/cpu` を `whl/cu121` 等に変更。 |
